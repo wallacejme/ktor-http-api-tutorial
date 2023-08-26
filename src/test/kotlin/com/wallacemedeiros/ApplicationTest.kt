@@ -29,6 +29,15 @@ class CustomerRouteTest {
 
     @Test
     fun testGetCustomer() = testApplication {
+        val customerCreationClient = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        customerCreationClient.post("/customer") {
+            contentType(ContentType.Application.Json)
+            setBody(luizGonzaga)
+        }
         val client = createClient {
             install(ContentNegotiation) {
                 json()
