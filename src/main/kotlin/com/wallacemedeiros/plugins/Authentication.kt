@@ -27,7 +27,7 @@ fun Application.configureAuthentication() {
             validate { credential ->
                 if (credential.payload.audience.contains(audience)) JWTPrincipal(credential.payload) else null
             }
-            challenge { defaultScheme, realm ->
+            challenge { _, _ ->
                 call.respond(HttpStatusCode.Unauthorized, "Token expirou ou é inválido")
             }
         }
