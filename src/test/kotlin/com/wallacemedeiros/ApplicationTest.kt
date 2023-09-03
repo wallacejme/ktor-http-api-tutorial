@@ -1,6 +1,7 @@
 package com.wallacemedeiros
 
 import com.wallacemedeiros.models.Customer
+import com.wallacemedeiros.models.PostCustomer
 import com.wallacemedeiros.models.PostUser
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -10,6 +11,8 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.testing.*
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.test.*
 
 class CustomerRouteTest {
@@ -21,12 +24,23 @@ class CustomerRouteTest {
                 json()
             }
         }
+        val customerCountBeforePost = client.get("/customer").body<List<Customer>>().size
         val response = client.post("/customer") {
             contentType(ContentType.Application.Json)
-            setBody(luizGonzaga)
+            setBody(buildJsonObject {
+                put("firstName", luizGonzaga.firstName)
+                put("lastName", luizGonzaga.lastName)
+                put("email", luizGonzaga.email)
+            })
         }
-        assertEquals("Cliente criado com sucesso", response.bodyAsText())
+        val responseBody = response.body<Customer>()
+        assertEquals(luizGonzaga.firstName, responseBody.firstName)
+        assertEquals(luizGonzaga.lastName, responseBody.lastName)
+        assertEquals(luizGonzaga.email, responseBody.email)
         assertEquals(HttpStatusCode.Created, response.status)
+
+        val customerCountAfterPost = client.get("/customer").body<List<Customer>>().size
+        assertEquals(customerCountBeforePost + 1, customerCountAfterPost)
     }
 
     @Test
@@ -36,17 +50,17 @@ class CustomerRouteTest {
                 json()
             }
         }
-        customerCreationClient.post("/customer") {
+        val createdCustomer = customerCreationClient.post("/customer") {
             contentType(ContentType.Application.Json)
-            setBody(luizGonzaga)
-        }
+            setBody(PostCustomer(luizGonzaga.firstName, luizGonzaga.lastName, luizGonzaga.email))
+        }.body<Customer>()
         val client = createClient {
             install(ContentNegotiation) {
                 json()
             }
         }
-        val response = client.get("/customer/${luizGonzaga.id}")
-        assertEquals(luizGonzaga, response.body())
+        val response = client.get("/customer/${createdCustomer.id}")
+        assertEquals(createdCustomer, response.body())
         assertEquals(HttpStatusCode.OK, response.status)
     }
 
@@ -57,10 +71,74 @@ class CustomerRouteTest {
                 json()
             }
         }
-        val id = "2"
+        val id = "0"
         val response = client.get("/customer/$id")
         assertEquals("Nenhum cliente com id $id", response.bodyAsText())
         assertEquals(HttpStatusCode.NotFound, response.status)
+    }
+
+    @Test
+    fun testEditCustomer() = testApplication {
+        val customClient = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        var customerId = customClient.get("/customer").body<List<Customer>>().lastOrNull()?.id
+        if (customerId == null) {
+            customerId = customClient.post("/customer") {
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("firstName", luizGonzaga.firstName)
+                    put("lastName", luizGonzaga.lastName)
+                    put("email", luizGonzaga.email)
+                })
+            }.body<Customer>().id
+        }
+
+        val newCustomerData = PostCustomer("Zeca", "Baleiro", "baleiro@musica.com")
+        val putResponse = customClient.put("/customer/$customerId") {
+            contentType(ContentType.Application.Json)
+            setBody(newCustomerData)
+        }
+        assertTrue(putResponse.bodyAsText().isEmpty())
+        assertEquals(HttpStatusCode.NoContent, putResponse.status)
+
+        val updatedCustomer = customClient.get("/customer/$customerId")
+        assertEquals(
+            Customer(customerId, newCustomerData.firstName, newCustomerData.lastName, newCustomerData.email),
+            updatedCustomer.body()
+        )
+        assertEquals(HttpStatusCode.OK, updatedCustomer.status)
+    }
+
+    @Test
+    fun testDeleteCustomer() = testApplication {
+        val client = createClient {
+            install(ContentNegotiation) {
+                json()
+            }
+        }
+        val allCustomers = client.get("/customer").body<List<Customer>>()
+        var customerCountBeforeDelete = allCustomers.size
+        var customerId = allCustomers.lastOrNull()?.id
+        if (customerCountBeforeDelete == 0) {
+            customerId = client.post("/customer") {
+                contentType(ContentType.Application.Json)
+                setBody(buildJsonObject {
+                    put("firstName", luizGonzaga.firstName)
+                    put("lastName", luizGonzaga.lastName)
+                    put("email", luizGonzaga.email)
+                })
+            }.body<Customer>().id
+            customerCountBeforeDelete++
+        }
+        val deleteResponse = client.delete("/customer/$customerId")
+        assertTrue(deleteResponse.bodyAsText().isEmpty())
+        assertEquals(HttpStatusCode.NoContent, deleteResponse.status)
+
+        val customerCountAfterDelete = client.get("/customer").body<List<Customer>>().size
+        assertEquals(customerCountBeforeDelete - 1, customerCountAfterDelete)
     }
 }
 
