@@ -17,7 +17,7 @@ application {
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
     kotlin {
-        jvmToolchain(11)
+        jvmToolchain(17)
     }
 }
 
