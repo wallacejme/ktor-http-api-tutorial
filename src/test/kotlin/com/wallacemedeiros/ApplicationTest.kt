@@ -13,7 +13,7 @@ import kotlinx.serialization.json.Json
 import kotlin.test.*
 
 class CustomerRouteTest {
-    private val luizGonzaga = Customer("1", "Luiz", "Gonzaga", "luiz.gonzaga@musica.com")
+    private val luizGonzaga = Customer(1, "Luiz", "Gonzaga", "luiz.gonzaga@musica.com")
     @Test
     fun testCreateCustomer() = testApplication {
         val client = createClient {
